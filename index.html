@@ -8,10 +8,16 @@
   <style>
     #departmentSelectGroup { display: none; }
 
-    /* --- New Styles Added Here --- */
     .subtitle {
-        font-size: 1.2rem; /* Made the font larger */
-        font-weight: 600;  /* Made the font semi-bold */
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+
+    /* --- New Rule for Mobile Layout --- */
+    @media (max-width: 600px) {
+      #background-chakra {
+        top: 35%; /* Moves the chakra up on mobile screens */
+      }
     }
   </style>
 </head>
