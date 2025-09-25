@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CIVIC EYE - Report an Issue</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.0.0/dist/geosearch.css" />
+  <link rel="stylesheet" href="style.css">
+  <style>
+    #map { height: 300px; margin-bottom: 10px; border-radius: 8px; }
+    .map-controls button { width: auto; flex-grow: 1; background-color: #0d6efd !important; }
+  </style>
+</head>
+<body>
+  <header>CIVIC EYE - Citizen Dashboard</header>
+  <div class="profile-container">
+    <button id="profileBtn" class="profile-btn">My Profile ▾</button>
+    <div class="profile-dropdown" id="profileDropdown"><a href="#" id="logoutBtn">Logout</a></div>
+  </div>
+
+  <div class="dashboard-section">
+    <a href="track.html"><button style="background-color: #0d6efd;">Track My Submitted Issues</button></a>
+  </div>
+
+  <div class="dashboard-section">
+    <h2>Report a New Issue</h2>
+    <label for="issuePhoto">Attach Photo:</label>
+    <input type="file" id="issuePhoto" accept="image/*">
+    <label for="issueDesc">Describe the Issue:</label>
+    <textarea id="issueDesc" placeholder="Write a short description"></textarea>
+    <label for="issueTags">Add Tags (comma separated):</label>
+    <input type="text" id="issueTags" placeholder="e.g. pothole, streetlight, waste">
+    <label>Pick Issue Location (Search or use button):</label>
+    <div id="map"></div>
+    <div class="map-controls">
+        <button id="currentLocationBtn">Use My Current Location</button>
+    </div>
+    <button id="submitBtn">Submit Issue</button>
+  </div>
+  
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-geosearch@3.0.0/dist/geosearch.umd.js"></script>
+  
+  <script type="module">
+    import { auth } from "./firebase-config.js";
+    import { submitIssue, logout } from "./script.js";
+
+    document.getElementById("profileBtn").addEventListener("click", () => {
+      document.getElementById("profileDropdown").style.display = document.getElementById("profileDropdown").style.display === "block" ? "none" : "block";
+    });
+    document.getElementById("logoutBtn").addEventListener("click", logout);
+    document.getElementById("submitBtn").addEventListener("click", handleSubmission);
+    document.getElementById("currentLocationBtn").addEventListener("click", useCurrentLocation);
+
+    const marianCoords = [8.55776, 76.86004];
+    let selectedLat = marianCoords[0], selectedLng = marianCoords[1];
+    const map = L.map('map').setView(marianCoords, 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    const marker = L.marker(marianCoords, { draggable: true }).addTo(map);
+    const search = new GeoSearch.GeoSearchControl({ provider: new GeoSearch.OpenStreetMapProvider(), style: 'bar', showMarker: false, autoClose: true });
+    map.addControl(search);
+    map.on('geosearch/showlocation', (result) => {
+        const { x, y } = result.location; marker.setLatLng([y, x]); map.setView([y, x], 17);
+    });
+    marker.on('dragend', (e) => {
+        const pos = e.target.getLatLng(); selectedLat = pos.lat; selectedLng = pos.lng;
+    });
+    function useCurrentLocation() {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude, lng = position.coords.longitude;
+                map.setView([lat, lng], 18); marker.setLatLng([lat, lng]); selectedLat = lat; selectedLng = lng;
+            },
+            () => { alert("Could not get your location."); }
+        );
+    }
+    
+    async function handleSubmission() {
+        const photoInput = document.getElementById("issuePhoto"), desc = document.getElementById("issueDesc").value, tagsInput = document.getElementById("issueTags").value, photoFile = photoInput.files[0];
+        const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
+        if (!desc || !photoFile) { alert("Please provide a description and attach a photo."); return; }
+        const currentUser = auth.currentUser;
+        if (!currentUser) { alert("You must be logged in."); return; }
+        await submitIssue(photoFile, desc, tags, selectedLat, selectedLng, currentUser.uid);
+        photoInput.value = ""; document.getElementById("issueDesc").value = ""; document.getElementById("issueTags").value = "";
+    }
+  </script>
+</body>
+</html>
